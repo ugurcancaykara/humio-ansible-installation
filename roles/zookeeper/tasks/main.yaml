@@ -1,0 +1,82 @@
+---
+
+- name: "Zookeeper installation"
+  block:
+
+  - name: apt-get update and upgrade before installing zookeeper
+    shell: |
+      apt-get update -y
+      apt-get upgrade -y
+
+  - name: create zookeeper user
+    shell: |
+      adduser zookeeper --shell=/bin/false --no-create-home --system --group
+
+  - name: deny zookeeper user to ssh and sftp into the node
+    shell: |
+      echo "DenyUsers zookeeper" >> /etc/ssh/sshd_config && systemctl restart sshd
+
+  - name: install zookeeper
+    shell: |
+      wget https://archive.apache.org/dist/zookeeper/zookeeper-3.7.1/apache-zookeeper-3.7.1-bin.tar.gz
+    args:
+      chdir: /opt
+      creates: apache-zookeeper-3.7.1-bin.tar.gz
+  
+  - name: untar zookeeper
+    shell: |
+      tar -zxf apache-zookeeper-3.7.1-bin.tar.gz
+      ln -s /opt/apache-zookeeper-3.7.1-bin /opt/zookeeper
+      cd /opt/zookeeper
+      mkdir -p /var/zookeeper/data
+    args:
+      chdir: /opt
+
+  - name: copy zoo.cfg
+    copy:
+      src: "{{ role_path }}/files/zoo.cfg"
+      dest: /opt/zookeeper/conf/zoo.cfg
+
+  - name: add myid to data directory
+    shell: |
+      bash -c 'echo 1 > /var/zookeeper/data/myid'
+
+  - name: chown directories
+    shell: |
+      chown -R zookeeper:zookeeper /opt/apache-zookeeper-3.7.1-bin
+      chown -R zookeeper:zookeeper /var/zookeeper/data
+      chown -R zookeeper:zookeeper /opt/zookeeper
+  
+  - name: copy zookeeper.service
+    copy:
+      src: "{{ role_path }}/files/zookeeper.service"
+      dest: /etc/systemd/system/zookeeper.service
+
+  - name: Enable Zookeeper Systemd
+    systemd:
+      name: zookeeper
+      daemon_reload: true
+      state: started
+      enabled: true
+
+  - name: Force zookeeper service restart
+    debug:
+      msg: "Notify handler"
+    notify: "Restart zookeeper service"
+
+  - name: Flush handlers
+    meta: flush_handlers
+
+  - name: Get services status
+    ansible.builtin.service_facts:
+
+  - name: Check if zookeeper.service is running
+    ansible.builtin.assert:
+      quiet: true
+      that: ansible_facts.services['zookeeper.service']['state'] == 'running'
+      fail_msg: zookeeper.service is not running
+      
+  tags:
+  - zookeeper
+  - never
+

@@ -1,0 +1,37 @@
+---
+
+- name: install pip and pip-docker
+  shell: |
+    apt install python3-pip -y
+    pip install docker
+
+- name: Stop humio systemd service
+  systemd:
+    name: humio
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: creating directories
+  shell: |
+    mkdir -p /mounts/data /mounts/kafka-data /mounts/humio-runtime
+
+- name: copy humio.conf
+  copy:
+    src: "{{ role_path }}/files/humio.conf"
+    dest: /tmp/humio.conf
+
+- name: docker | Create humio container
+  community.docker.docker_container:
+    name: humio
+    image: "humio/humio"
+    stop_timeout: 300
+    # ulimits: "nofile=8192:8192"
+    detach: true
+    restart_policy: unless-stopped
+    network_mode: host
+    env_file: /tmp/humio.conf
+    volumes:
+      - /mounts/data/kafka-data:/data/kafka-data
+      - /mounts/humio-runtime:/etc/humio:ro
+      - /mounts/data:/data

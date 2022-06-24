@@ -1,0 +1,7 @@
+---
+- name: "Restart humio service"
+  systemd:
+    name: humio
+    daemon_reload: true
+    state: restarted
+    enabled: true

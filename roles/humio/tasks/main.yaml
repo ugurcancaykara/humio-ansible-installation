@@ -1,0 +1,17 @@
+---
+
+- name: "Humio installation"
+  block:
+
+  - name: Include systemd tasks
+    include_tasks: humio-systemd.yaml
+    when: not humio_use_docker
+
+  - name: Include Docker tasks
+    include_tasks: humio-docker.yaml
+    when: humio_use_docker
+
+  tags:
+  - humio
+  - never
+

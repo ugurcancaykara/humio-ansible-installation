@@ -1,0 +1,16 @@
+[Unit]
+Description=Humio service
+After=network.service
+
+[Service]
+Type=notify
+Restart=on-abnormal
+User=humio
+Group=humio
+LimitNOFILE=250000:250000
+EnvironmentFile=/etc/humio/server.conf
+WorkingDirectory=/var/humio
+ExecStart=/usr/bin/java -server -XX:+UseParallelOldGC -Xms4G -Xmx32G -XX:MaxDirectMemorySize=8G -Xss2M --add-exports java.base/jdk.internal.util=ALL-UNNAMED -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc*,gc+jni=debug:file=/var/log/humio/gc_humio.log:time,tags:filecount=5,filesize=102400 -Dhumio.auditlog.dir=/var/log/humio -Dhumio.debuglog.dir=/var/log/humio -jar /opt/humio/server.jar
+
+[Install]
+WantedBy=default.target

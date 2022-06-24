@@ -1,0 +1,7 @@
+---
+- name: "Restart zookeeper service"
+  systemd:
+    name: zookeeper
+    daemon_reload: true
+    state: restarted
+    enabled: true

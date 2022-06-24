@@ -1,0 +1,38 @@
+---
+- hosts: servers
+  gather_facts: false
+  become: true
+  tasks:
+  - name: "Docker installation"
+    include_role:
+      name: docker
+    when: use_docker
+
+  
+  - name: "Java installation"
+    include_role:
+      name: java
+    tags:
+    - java
+    - never
+  
+  - name: "Zookeeper installation"
+    include_role:
+      name: zookeeper
+    tags:
+    - zookeeper
+    - never
+
+  - name: "Kafka installation"
+    include_role:
+      name: kafka
+    tags:
+    - kafka
+    - never
+
+  - name: "Humio installation"
+    include_role:
+      name: humio
+    tags:
+    - humio
+    - never

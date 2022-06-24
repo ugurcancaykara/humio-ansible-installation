@@ -1,0 +1,91 @@
+---
+
+- name: "Kafka installation"
+  block:
+
+  - name: apt-get update and upgrade before installing kafka
+    shell: |
+      apt-get update -y
+      apt-get upgrade -y
+
+  - name: create kafka user
+    shell: |
+      adduser kafka --shell=/bin/false --no-create-home --system --group
+
+  - name: deny kafka user to ssh and sftp into the node
+    shell: |
+      echo "DenyUsers kafka" >> /etc/ssh/sshd_config && systemctl restart sshd
+
+  - name: install kafka
+    shell: |
+      wget https://dlcdn.apache.org/kafka/3.2.0/kafka_2.12-3.2.0.tgz
+    args:
+      chdir: /opt
+      creates: kafka_2.12-3.2.0.tgz
+  
+  - name: untar kafka
+    shell: |
+      tar zxf kafka_2.12-3.2.0.tgz
+
+      mkdir -p /var/log/kafka
+      mkdir -p /var/kafka-data
+      chown kafka:kafka /var/log/kafka
+      chown kafka:kafka /var/kafka-data
+
+      ln -s /opt/kafka_2.12-3.2.0 /opt/kafka
+    args:
+      chdir: /opt
+    ignore_errors: true
+
+  - name: Change broker.id to 1
+    ansible.builtin.lineinfile:
+      path: /opt/kafka_2.12-3.2.0/config/server.properties
+      regexp: '^broker.id='
+      line: broker.id=1
+      
+  - name: Change log.dirs
+    ansible.builtin.lineinfile:
+      path: /opt/kafka_2.12-3.2.0/config/server.properties
+      regexp: '^log.dirs='
+      line: log.dirs=/var/kafka-data
+  
+  - name: add delete.topic.enable
+    shell: |
+      echo "delete.topic.enable = true" >> /opt/kafka_2.12-3.2.0/config/server.properties
+      chown -R kafka:kafka /opt/kafka_2.12-3.2.0
+  
+
+  - name: copy kafka.service
+    copy:
+      src: "{{ role_path }}/files/kafka.service"
+      dest: /etc/systemd/system/kafka.service
+
+
+  - name: Enable Kafka Systemd
+    systemd:
+      name: kafka
+      daemon_reload: true
+      state: started
+      enabled: true
+
+  - name: Force kafka service restart
+    debug:
+      msg: "Notify handler"
+    notify: "Restart kafka service"
+
+  - name: Flush handlers
+    meta: flush_handlers
+
+  - name: Get services status
+    ansible.builtin.service_facts:
+
+  - name: Check if kafka.service is running
+    ansible.builtin.assert:
+      quiet: true
+      that: ansible_facts.services['kafka.service']['state'] == 'running'
+      fail_msg: kafka.service is not running
+      
+  tags:
+  - kafka
+  - never
+

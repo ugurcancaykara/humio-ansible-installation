@@ -1,0 +1,3 @@
+---
+use_docker: false
+humio_use_docker: "{{ use_docker | bool }}"

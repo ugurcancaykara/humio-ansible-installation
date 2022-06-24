@@ -1,0 +1,67 @@
+---
+- name: apt-get update and upgrade before installing humio
+  shell: |
+    apt-get update -y
+    apt-get upgrade -y
+
+- name: create humio user
+  shell: |
+    adduser humio --shell=/bin/false --no-create-home --system --group
+
+- name: deny humio user to ssh and sftp into the node
+  shell: |
+    echo "DenyUsers humio" >> /etc/ssh/sshd_config && systemctl restart sshd
+    mkdir -p /opt/humio /etc/humio/filebeat /var/log/humio /var/humio/data
+    chown humio:humio /opt/humio /etc/humio/filebeat
+    chown humio:humio /var/log/humio /var/humio/data
+
+- name: install humio
+  shell: |
+    wget https://repo.humio.com/repository/maven-releases/com/humio/server/1.42.0/server-1.42.0.jar
+  args:
+    chdir: /opt/humio
+    creates: server-1.42.0.jar
+
+- name: link humio
+  shell: |
+    ln -s /opt/humio/server-1.42.0.jar /opt/humio/server.jar
+  ignore_errors: true
+
+- name: copy humio server.conf
+  copy:
+    src: "{{ role_path }}/files/server.conf"
+    dest: /etc/humio/server.conf
+
+- name: copy humio.service
+  copy:
+    src: "{{ role_path }}/files/humio.service"
+    dest: /etc/systemd/system/humio.service
+
+- name: chown directories
+  shell: |
+    chown -R humio:humio /opt/humio /etc/humio/filebeat
+    chown -R humio:humio /var/log/humio /var/humio/data
+
+- name: Enable humio Systemd
+  systemd:
+    name: humio
+    daemon_reload: true
+    state: started
+    enabled: true
+
+- name: Force humio service restart
+  debug:
+    msg: "Notify handler"
+  notify: "Restart humio service"
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Get services status
+  ansible.builtin.service_facts:
+
+- name: Check if humio.service is running
+  ansible.builtin.assert:
+    quiet: true
+    that: ansible_facts.services['humio.service']['state'] == 'running'
+    fail_msg: humio.service is not running
